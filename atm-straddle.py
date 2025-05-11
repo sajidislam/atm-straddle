@@ -50,7 +50,7 @@ fieldnames = [
     "Symbol", "Date", "Current Price", "Expiration Date", "DTE", "ATM Strike",
     "Call Price", "Call IV", "Call Delta", "Call Theta",
     "Put Price", "Put IV", "Put Delta", "Put Theta",
-    "HV", "Straddle Price", "Range Low", "Range High", "Earnings Date"
+    "HV", "Straddle Price", "Implied Move %", "Range Low", "Range High", "Earnings Date"
 ]
 
 file_exists = os.path.isfile(csv_file)
@@ -81,17 +81,19 @@ with open(csv_file, mode='a', newline='') as file:
         atm_call = atm_call_rows.iloc[0]
         atm_put = atm_put_rows.iloc[0]
 
-        call_price = atm_call['lastPrice']
+        call_mid = (atm_call['bid'] + atm_call['ask']) / 2
+        put_mid = (atm_put['bid'] + atm_put['ask']) / 2
+
         call_iv = atm_call['impliedVolatility']
         call_delta = atm_call.get('delta', 0)
         call_theta = atm_call.get('theta', 0)
 
-        put_price = atm_put['lastPrice']
         put_iv = atm_put['impliedVolatility']
         put_delta = atm_put.get('delta', 0)
         put_theta = atm_put.get('theta', 0)
 
-        straddle_price = call_price + put_price
+        straddle_price = call_mid + put_mid
+        implied_move_pct = (straddle_price / current_price) * 100
         low_range = current_price - straddle_price
         high_range = current_price + straddle_price
 
@@ -99,9 +101,10 @@ with open(csv_file, mode='a', newline='') as file:
         dte = (datetime.strptime(exp_date, "%Y-%m-%d").date() - date.today()).days
 
         print(f"\nExpiration: {exp_date} | ATM Strike: {atm_strike} | DTE: {dte}")
-        print(f"Call: ${call_price:.2f}, IV: {call_iv:.2%}, Delta: {call_delta}, Theta: {call_theta}")
-        print(f"Put:  ${put_price:.2f}, IV: {put_iv:.2%}, Delta: {put_delta}, Theta: {put_theta}")
-        print(f"Straddle Price: ${straddle_price:.2f}, Range: ${low_range:.2f} to ${high_range:.2f}")
+        print(f"Call (mid): ${call_mid:.2f}, IV: {call_iv:.2%}, Delta: {call_delta}, Theta: {call_theta}")
+        print(f"Put  (mid): ${put_mid:.2f}, IV: {put_iv:.2%}, Delta: {put_delta}, Theta: {put_theta}")
+        print(f"Straddle Price: ${straddle_price:.2f}, Implied Move: ±{implied_move_pct:.2f}%")
+        print(f"Expected Range: ${low_range:.2f} to ${high_range:.2f}")
 
         writer.writerow({
             "Symbol": symbol,
@@ -110,16 +113,17 @@ with open(csv_file, mode='a', newline='') as file:
             "Expiration Date": exp_date,
             "DTE": dte,
             "ATM Strike": atm_strike,
-            "Call Price": round(call_price, 2),
+            "Call Price": round(call_mid, 2),
             "Call IV": round(call_iv, 4),
             "Call Delta": round(call_delta, 4),
             "Call Theta": round(call_theta, 4),
-            "Put Price": round(put_price, 2),
+            "Put Price": round(put_mid, 2),
             "Put IV": round(put_iv, 4),
             "Put Delta": round(put_delta, 4),
             "Put Theta": round(put_theta, 4),
             "HV": round(hv, 4),
             "Straddle Price": round(straddle_price, 2),
+            "Implied Move %": round(implied_move_pct, 2),
             "Range Low": round(low_range, 2),
             "Range High": round(high_range, 2),
             "Earnings Date": earnings_date
